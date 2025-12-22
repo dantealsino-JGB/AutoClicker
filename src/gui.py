@@ -202,13 +202,16 @@ class AutoClickerApp(ctk.CTk):
     def _capture_position(self):
         time.sleep(3)
         x, y = pyautogui.position()
-        # Atualiza a GUI na thread principal (CustomTkinter lida bem com isso, mas idealmente usar .after se der problema)
+        
+        # Agenda a atualização da GUI para a thread principal
+        self.after(0, lambda: self._update_capture_ui(x, y))
+
+    def _update_capture_ui(self, x, y):
         self.entry_x.delete(0, "end")
         self.entry_x.insert(0, str(x))
         self.entry_y.delete(0, "end")
         self.entry_y.insert(0, str(y))
-        
-        self.after(0, lambda: self.lbl_status.configure(text=f"Capturado: {x}, {y}"))
+        self.lbl_status.configure(text=f"Capturado: {x}, {y}")
 
     def add_step(self):
         try:
