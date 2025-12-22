@@ -1,0 +1,6 @@
+customtkinter
+pyautogui
+keyboard
+mouse
+packaging
+pillow
