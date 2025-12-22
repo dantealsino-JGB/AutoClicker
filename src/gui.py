@@ -3,8 +3,24 @@ import pyautogui
 import time
 import threading
 import keyboard
+import logging
+from logging.handlers import RotatingFileHandler
+import os
 from tkinter import filedialog
 from .automation import AutomationEngine, ClickStep
+
+# Configuração de Logging
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        RotatingFileHandler("logs/app.log", maxBytes=1_000_000, backupCount=3, encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -157,12 +173,6 @@ class AutoClickerApp(ctk.CTk):
 
         self.btn_execute = ctk.CTkButton(self.control_frame, text="Executar Sequência", command=self.start_execution_thread, fg_color="green")
         self.btn_execute.pack(side="left", padx=5, pady=10, expand=True, fill="x")
-    
-    def on_action_change(self, choice):
-        if choice == "Digitar Texto":
-            self.entry_text.pack(side="left", padx=5)
-        else:
-            self.entry_text.pack_forget()
 
         # Opções de Loop (Adicionado na Fase 4)
         self.loop_frame = ctk.CTkFrame(self.control_frame, fg_color="transparent")
@@ -187,6 +197,12 @@ class AutoClickerApp(ctk.CTk):
         # Status Bar
         self.lbl_status = ctk.CTkLabel(self, text="Pronto.")
         self.lbl_status.grid(row=3, column=0, sticky="w", padx=10, pady=5)
+
+    def on_action_change(self, choice):
+        if choice == "Digitar Texto":
+            self.entry_text.pack(side="left", padx=5)
+        else:
+            self.entry_text.pack_forget()
 
     def toggle_infinite_loop(self):
         if self.chk_infinite.get():
