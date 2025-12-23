@@ -6,6 +6,7 @@ import keyboard
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+import tkinter.messagebox as messagebox
 from tkinter import filedialog
 from .automation import AutomationEngine, ClickStep
 
@@ -76,7 +77,7 @@ class AutoClickerApp(ctk.CTk):
         super().__init__()
 
         self.title("AutoClicker Modular")
-        self.geometry("600x500")
+        self.geometry("600x530") # Aumentado um pouco para caber novos botoes
         
         self.engine = AutomationEngine()
         self.markers = []
@@ -133,9 +134,18 @@ class AutoClickerApp(ctk.CTk):
         )
         self.opt_action.pack(side="left", padx=5)
 
-        # Campo de Texto (Visível apenas se Ação == Digitar)
-        self.entry_text = ctk.CTkEntry(self.input_box, placeholder_text="Texto para digitar...", width=150)
-        # Não damos pack aqui, apenas quando selecionar Digitar
+        # Campo de Texto
+        self.entry_text = ctk.CTkEntry(self.input_box, placeholder_text="Texto...", width=120)
+        
+        # Checkboxes para Texto
+        self.text_opts_frame = ctk.CTkFrame(self.input_box, fg_color="transparent")
+        # Será mostrado apenas quando Digitar Texto
+        
+        self.chk_use_file = ctk.CTkCheckBox(self.text_opts_frame, text="Usar Arq.", width=60)
+        self.chk_use_file.pack(side="left", padx=2)
+        
+        self.chk_clear_field = ctk.CTkCheckBox(self.text_opts_frame, text="Limpar", width=60)
+        self.chk_clear_field.pack(side="left", padx=2)
 
         # Actions Box
         self.action_box = ctk.CTkFrame(self.config_frame, fg_color="transparent")
@@ -147,20 +157,30 @@ class AutoClickerApp(ctk.CTk):
         self.btn_add = ctk.CTkButton(self.action_box, text="Adicionar Passo", command=self.add_step)
         self.btn_add.pack(side="left", padx=5, expand=True, fill="x")
 
-        # File Box
+        # Data & File Box
         self.file_box = ctk.CTkFrame(self.config_frame, fg_color="transparent")
         self.file_box.pack(pady=5, padx=5, fill="x")
+        
+        self.btn_load_data = ctk.CTkButton(self.file_box, text="Carregar Dados (.txt)", command=self.load_data, fg_color="purple", width=120)
+        self.btn_load_data.pack(side="left", padx=5)
+        
+        self.lbl_data_info = ctk.CTkLabel(self.file_box, text="Dados: 0 linhas", text_color="gray")
+        self.lbl_data_info.pack(side="left", padx=5)
 
-        self.btn_save = ctk.CTkButton(self.file_box, text="Salvar JSON", command=self.save_sequence, fg_color="green", width=80)
+        # File Operations
+        self.op_box = ctk.CTkFrame(self.config_frame, fg_color="transparent")
+        self.op_box.pack(pady=5, padx=5, fill="x")
+
+        self.btn_save = ctk.CTkButton(self.op_box, text="Salvar JSON", command=self.save_sequence, fg_color="green", width=80)
         self.btn_save.pack(side="left", padx=5, expand=True, fill="x")
 
-        self.btn_load = ctk.CTkButton(self.file_box, text="Carregar JSON", command=self.load_sequence, fg_color="blue", width=80)
+        self.btn_load = ctk.CTkButton(self.op_box, text="Carregar JSON", command=self.load_sequence, fg_color="blue", width=80)
         self.btn_load.pack(side="left", padx=5, expand=True, fill="x")
 
-        self.btn_clear = ctk.CTkButton(self.file_box, text="Limpar Lista", command=self.clear_list, fg_color="gray", width=80)
+        self.btn_clear = ctk.CTkButton(self.op_box, text="Limpar Lista", command=self.clear_list, fg_color="gray", width=80)
         self.btn_clear.pack(side="left", padx=5, expand=True, fill="x")
 
-        self.chk_markers = ctk.CTkCheckBox(self.file_box, text="Marcadores Visuais", command=self.toggle_markers)
+        self.chk_markers = ctk.CTkCheckBox(self.op_box, text="Marcadores", command=self.toggle_markers)
         self.chk_markers.pack(side="right", padx=5)
 
         # Lista de Passos
@@ -180,6 +200,9 @@ class AutoClickerApp(ctk.CTk):
 
         self.chk_infinite = ctk.CTkCheckBox(self.loop_frame, text="Loop Infinito", command=self.toggle_infinite_loop)
         self.chk_infinite.pack(side="top", pady=2)
+        
+        self.chk_confirm = ctk.CTkCheckBox(self.loop_frame, text="Confirmar Loops")
+        self.chk_confirm.pack(side="top", pady=2)
         
         self.loop_count_frame = ctk.CTkFrame(self.loop_frame, fg_color="transparent")
         self.loop_count_frame.pack(side="top", pady=2)
@@ -201,8 +224,20 @@ class AutoClickerApp(ctk.CTk):
     def on_action_change(self, choice):
         if choice == "Digitar Texto":
             self.entry_text.pack(side="left", padx=5)
+            self.text_opts_frame.pack(side="left", padx=5)
         else:
             self.entry_text.pack_forget()
+            self.text_opts_frame.pack_forget()
+
+    def load_data(self):
+        filepath = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+        if filepath:
+            try:
+                count = self.engine.load_data_file(filepath)
+                self.lbl_data_info.configure(text=f"Dados: {count} linhas")
+                self.lbl_status.configure(text=f"Dados carregados: {filepath.split('/')[-1]}")
+            except Exception as e:
+                self.lbl_status.configure(text=f"Erro ao carregar dados: {e}", text_color="red")
 
     def toggle_infinite_loop(self):
         if self.chk_infinite.get():
@@ -249,6 +284,8 @@ class AutoClickerApp(ctk.CTk):
             button = "left"
             action_type = "click"
             text_content = ""
+            use_data_file = False
+            clear_field = False
             
             if action_choice == "Click Left":
                 button = "left"
@@ -257,8 +294,10 @@ class AutoClickerApp(ctk.CTk):
             elif action_choice == "Digitar Texto":
                 action_type = "type"
                 text_content = self.entry_text.get()
+                use_data_file = bool(self.chk_use_file.get())
+                clear_field = bool(self.chk_clear_field.get())
 
-            self.engine.add_step(x, y, delay, button, action_type, text_content)
+            self.engine.add_step(x, y, delay, button, action_type, text_content, use_data_file, clear_field)
             self._refresh_list()
             self.lbl_status.configure(text="Passo adicionado.", text_color="white")
         except ValueError:
@@ -287,7 +326,8 @@ class AutoClickerApp(ctk.CTk):
             self.step_frames.append(item_frame)
             
             # Label do passo
-            # ... (código existente mantido, mas precisamos garantir que estamos no contexto certo)
+            # Se for type com clear, mostra o [LIMPAR]
+            # Como atualizamos o __str__ no backend, isso deve aparecer automático
             lbl = ctk.CTkLabel(item_frame, text=f"{i+1}. {step}", anchor="w")
             lbl.pack(side="left", fill="x", expand=True, padx=5)
             
@@ -355,16 +395,25 @@ class AutoClickerApp(ctk.CTk):
             return
             
         infinite = self.chk_infinite.get()
+        confirm_loops = bool(self.chk_confirm.get())
             
         self.lbl_status.configure(text="Executando...", text_color="white")
         self.btn_execute.configure(state="disabled")
-        threading.Thread(target=self._run_engine, args=(loops, infinite), daemon=True).start()
+        threading.Thread(target=self._run_engine, args=(loops, infinite, confirm_loops), daemon=True).start()
 
-    def _run_engine(self, loops, infinite):
+    def _run_engine(self, loops, infinite, confirm_loops):
+        def confirmation_callback(loop_num):
+            # Esta função roda na thread da engine.
+            # MessageBox no Python Tkinter no Windows geralmente bloqueia a thread chamadora
+            # e exibe a GUI.
+            return messagebox.askyesno("Confirmar Loop", f"Loop {loop_num-1} finalizado.\nIniciar Loop {loop_num}?")
+
         self.engine.execute_sequence(
             loops=loops, 
             infinite=infinite, 
-            on_step_callback=lambda i: self.after(0, self.highlight_step, i)
+            on_step_callback=lambda i: self.after(0, self.highlight_step, i),
+            confirm_between_loops=confirm_loops,
+            confirm_callback=confirmation_callback
         )
         # Restaura estado ao finalizar
         self.after(0, self._on_execution_finished)
@@ -386,6 +435,7 @@ class AutoClickerApp(ctk.CTk):
                 self.lbl_status.configure(text=f"Salvo em {filepath.split('/')[-1]}")
             except Exception as e:
                 self.lbl_status.configure(text=f"Erro ao salvar: {e}", text_color="red")
+
 
     def load_sequence(self):
         filepath = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")])
